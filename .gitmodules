@@ -1,3 +1,6 @@
 [submodule "CLIP"]
 	path = CLIP
 	url = https://github.com/ljwztc/CLIP-Driven-Universal-Model.git
+[submodule "UniverSeg"]
+	path = UniverSeg
+	url = https://github.com/JJGO/UniverSeg.git

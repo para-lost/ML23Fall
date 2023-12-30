@@ -137,3 +137,8 @@ pred_and_plot(model = model_1,
               class_names = class_names)
 
 
+
+# 目前主流还是各种魔改unet
+
+
+
