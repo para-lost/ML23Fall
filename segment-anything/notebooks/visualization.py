@@ -70,14 +70,17 @@ def visualize_slice_with_sam_mask(image_data, true_mask_data, sam_mask_slice, sl
     ax[0].axis('off')
 
     # Display the image slice with true mask overlay
-    ax[1].imshow(image_slice, cmap='gray')
-    ax[1].imshow(true_mask_slice, cmap='jet', alpha=0.9)  # Adjust alpha for mask transparency
+    #ax[1].imshow(image_slice, cmap='gray')
+    ax[1].imshow(true_mask_slice, cmap='gray')
+    #ax[1].imshow(true_mask_slice, cmap='jet', alpha=0.5)  # Adjust alpha for mask transparency
+    print(true_mask_slice)
     ax[1].set_title(f'True Mask Overlay')
     ax[1].axis('off')
 
     # Display the image slice with SAM mask overlay
-    ax[2].imshow(image_slice, cmap='gray')
-    ax[2].imshow(sam_mask_slice, cmap='jet', alpha=0.9)
+    # ax[2].imshow(image_slice, cmap='gray')
+    # ax[2].imshow(sam_mask_slice, cmap='jet', alpha=0.5)
+    ax[2].imshow(sam_mask_slice, cmap='gray')
     ax[2].set_title(f'SAM Mask Overlay')
     ax[2].axis('off')
 
