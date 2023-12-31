@@ -37,7 +37,7 @@ def show_anns(anns, output_dir='./output/', filename='image.png'):
 def get_anns_score(anns):
     if len(anns) == 0:
         return
-    sorted_anns = sorted(anns, key=(lambda x: x['area']), reverse=True)
+    sorted_anns = sorted(anns, key=(lambda x: x['predicted_iou']), reverse=True)
     sorted_anns = sorted_anns[:13]
     print(len(sorted_anns))
     ann_avg =  sorted_anns[0]['segmentation'].astype(np.float32)
