@@ -36,16 +36,6 @@ val_img_names = [
     "img0008.nii.gz",
     "img0009.nii.gz",
     "img0010.nii.gz",
-    "img0011.nii.gz",
-    "img0012.nii.gz",
-    "img0013.nii.gz",
-    "img0014.nii.gz",
-    "img0015.nii.gz",
-    "img0016.nii.gz",
-    "img0017.nii.gz",
-    "img0018.nii.gz",
-    "img0019.nii.gz",
-    "img0020.nii.gz",
     "img0021.nii.gz",
     "img0022.nii.gz",
     "img0023.nii.gz",
@@ -72,16 +62,6 @@ val_label_names = [
     "label0008.nii.gz",
     "label0009.nii.gz",
     "label0010.nii.gz",
-    "label0011.nii.gz",
-    "label0012.nii.gz",
-    "label0013.nii.gz",
-    "label0014.nii.gz",
-    "label0015.nii.gz",
-    "label0016.nii.gz",
-    "label0017.nii.gz",
-    "label0018.nii.gz",
-    "label0019.nii.gz",
-    "label0020.nii.gz",
     "label0021.nii.gz",
     "label0022.nii.gz",
     "label0023.nii.gz",
@@ -266,7 +246,6 @@ def train():
 
                     upscaled_masks = sam_model.postprocess_masks(low_res_masks, input_size, original_image_size).to(device)
                     binary_mask = normalize(threshold(upscaled_masks, 0.0, 0))
-                    print(upscaled_masks)   
                     gt_mask_resized = torch.from_numpy(np.resize(mask, (1, 1, mask.shape[0], mask.shape[1]))).to(device)
                     gt_binary_mask = torch.as_tensor(gt_mask_resized > 0, dtype=torch.float32)
                     
