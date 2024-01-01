@@ -109,7 +109,7 @@ def get_anns_score(anns):
     if len(anns) == 0:
         return
     #sorted_anns = sorted(anns, key=(lambda x: x['predicted_iou']), reverse=True)
-    sorted_anns = sorted(anns, key=(lambda x: x['area']))
+    sorted_anns = sorted(anns, key=(lambda x: x['predicted_iou']), reverse=True)
     sorted_anns = sorted_anns[:13]
     ann_avg =  sorted_anns[0]['segmentation'].astype(np.float32)
     for i, ann in enumerate(sorted_anns[1:]):
