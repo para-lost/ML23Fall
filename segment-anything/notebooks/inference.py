@@ -267,6 +267,8 @@ def main():
     tot_num = {}
     for i in range(1, 14):
         tot_dict_random[i] = 0
+        tot_dict_multi[i] = 0
+        tot_dict_bbox[i] = 0
         tot_num[i] = 0
     for img_name, label_name in zip(val_img_names, val_label_names):
         print(img_name)
@@ -278,8 +280,6 @@ def main():
         classes = np.unique(label_data)[1:]  # Excludes 0 if it represents the background
         for class_idx in classes:
             random_score, multi_score, bbox_score = inference_for_class(label_data, image_data, class_idx, random=False)
-            multi_score = inference_for_class(label_data, image_data, class_idx)
-            bbox_score = inference_for_class(label_data, image_data, class_idx)
             tot_num[class_idx] += 1
             tot_dict_random[class_idx] += random_score
             tot_dict_multi[class_idx] += multi_score
