@@ -255,9 +255,3 @@ plt.imshow(sam_generated_masks.detach().cpu())
 plt.show()
 output_path = './images/image.png'  # Change to your desired path
 plt.savefig(output_path)
-# _, sam = get_model()
-# device = "cuda"
-# sam = sam.to(device)
-# sam.eval()
-# val_outputs = sliding_window_inference(torch.unsqueeze(img, 1).cuda(), (96, 96, 96), 4, sam)
-# print(val_outputs)
