@@ -56,15 +56,29 @@ def get_predictor():
     predictor = SamPredictor(sam)
     return predictor
 predictor = get_predictor()
-def sam_generate_mask(image, input_point):
+def sam_generate_mask(image, input_point, input_box = None, input_label = np.array([1])):
     predictor.set_image(image)
-    input_label = np.array([1])
-    masks, scores, logits = predictor.predict(
-        point_coords=input_point,
-        point_labels=input_label,
-        multimask_output=True,
-    )
-    return masks[0]
+    # input_label = np.array([1])
+    if input_box is not None:
+        masks, scores, logits = predictor.predict(
+            point_coords=input_point,
+            point_labels=input_label,
+            box=input_box[None, :],
+            multimask_output=True,
+        )
+    else:
+        masks, scores, logits = predictor.predict(
+            point_coords=input_point,
+            point_labels=input_label,
+            #box=input_box[None, :],
+            multimask_output=True,
+        )
+    
+    max_score_index = np.argmax(scores)
+
+    # Return the mask corresponding to the highest score
+    return masks[max_score_index]
+    # return masks[0]
     
 # Function to extract prompts from a single slice
 def extract_multiple_prompts_from_slice(slice_data, class_value):
@@ -97,32 +111,74 @@ def find_geometric_center(mask):
 
 def find_random_point(mask):
     points = np.argwhere(mask)
-    ans = list(points[random.randint(0, len(points) - 1)])
+    ans_float = list(points[random.randint(0, len(points) - 1)])
+    ans = [int(ans_float[0]), int(ans_float[1])]
     return np.array([ans])
     
 
 def find_multiple_points(mask, num_points=5):
-    points = [find_geometric_center(mask)[0]]
+    points = [list(find_geometric_center(mask)[0])]
     while len(points) < num_points:
         point = find_random_point(mask)
-        points.append(point)
+        points.append(list(point[0]))
+    print(points)
     return np.array(points)
 
 def find_bounding_box(mask):
-    slices = ndimage.find_objects(mask)
-    return slices[0] if slices else None
+    objects = ndimage.find_objects(mask)
+    if not objects:
+        return None
+    
+    # Assuming you want the bounding box of the first object
+    obj_slice = objects[0]
+
+    # Extract bounding box coordinates
+    y_min, y_max = obj_slice[0].start, obj_slice[0].stop
+    x_min, x_max = obj_slice[1].start, obj_slice[1].stop
+
+    # Return as (x_min, y_min, x_max, y_max)
+    return np.array([x_min, y_min, x_max, y_max])
+    
+
 
 def mdice(map1, map2):
     map1 = torch.tensor(map1)
     map2 = torch.tensor(map2)
     return 2*torch.sum(map1 == map2)/(torch.sum(map1 == map1)+torch.sum(map2 == map2))
 
-def inference_for_class(label_data, image_data, class_value):
+def inference_for_single_class(label_data, image_data, class_value):
     single_val = 0
-    multi_val = 0
-    bbox_val = 0
     single_num = 0
+    for slice_index in range(label_data.shape[2]):
+        slice_data = label_data[:, :, slice_index]
+        slice_image = get_image(image_data, slice_index)
+        mask = slice_data == class_value
+        if np.any(mask):
+            # Single point prompt
+            sam_mask_random = sam_generate_mask(slice_image, find_random_point(mask))
+            single_val += mdice(sam_mask_random, mask)
+            single_num += 1
+
+    return single_val/single_num
+
+def inference_for_multi_class(label_data, image_data, class_value):
+    multi_val = 0
     multi_num = 0
+    for slice_index in range(label_data.shape[2]):
+        slice_data = label_data[:, :, slice_index]
+        slice_image = get_image(image_data, slice_index)
+        mask = slice_data == class_value
+        if np.any(mask):
+            # Single point prompt
+            print(find_multiple_points(mask))
+            sam_mask_random = sam_generate_mask(slice_image, find_multiple_points(mask))
+            multi_val += mdice(sam_mask_random, mask)
+            multi_num += 1
+        
+    return multi_val/multi_num
+
+def inference_for_bbox_class(label_data, image_data, class_value):
+    bbox_val = 0
     bbox_num = 0
     for slice_index in range(label_data.shape[2]):
         slice_data = label_data[:, :, slice_index]
@@ -130,21 +186,55 @@ def inference_for_class(label_data, image_data, class_value):
         mask = slice_data == class_value
         if np.any(mask):
             # Single point prompt
-            print(find_random_point(mask))
-            sam_mask_random = sam_generate_mask(slice_image, find_random_point(mask))
-            single_val += mdice(sam_mask_random, mask)
-            single_num += 1
-            print(single_val)
-            # Multiple points prompt
-            print(find_multiple_points(mask))
-
-            # Bounding box prompt
             bbox = find_bounding_box(mask)
-            if bbox:
+            sam_mask_random = sam_generate_mask(slice_image, bbox)
+            bbox_val += mdice(sam_mask_random, mask)
+            bbox_num += 1
+
+    return bbox_val/bbox_num
+  
+def inference_for_class(label_data, image_data, class_value, random=True, multi=True, usebbox=True):
+    bbox_val = 0
+    bbox_num = 0
+    multi_val = 0
+    multi_num = 0
+    single_val = 0
+    single_num = 0
+    for slice_index in range(label_data.shape[2]):
+        slice_data = label_data[:, :, slice_index]
+        slice_image = get_image(image_data, slice_index)
+        mask = slice_data == class_value
+        if np.any(mask):
+            if random:
+                sam_mask_random = sam_generate_mask(slice_image, find_random_point(mask))
+                single_val += mdice(sam_mask_random, mask)
+                single_num += 1
+            if multi:
+                input_label = np.array([1, 1, 1, 1, 1])
+                sam_mask_random = sam_generate_mask(slice_image, find_multiple_points(mask), None, input_label)
+                multi_val += mdice(sam_mask_random, mask)
+                multi_num += 1
+            if usebbox:
+            # Single point prompt
+                bbox = find_bounding_box(mask)
                 print(bbox)
-
-    return single_val/single_num, 0, 0
-
+                sam_mask_random = sam_generate_mask(slice_image, None,bbox, None)
+                bbox_val += mdice(sam_mask_random, mask)
+                bbox_num += 1
+    if random:
+        rand_val = single_val/single_num
+    else:
+        rand_val = 0
+    if multi:
+        multi_val = multi_val/multi_num
+    else:
+        multi_val = 0
+    if usebbox:
+        bbox_val = bbox_val/bbox_num
+    else:
+        bbox_val = 0
+    return rand_val, multi_val, bbox_val
+      
 def visualization(image_data, label_data, class_value):
     for slice_index in range(label_data.shape[2]):
         slice_data = label_data[:, :, slice_index]
@@ -172,6 +262,8 @@ def visualization(image_data, label_data, class_value):
 
 def main():
     tot_dict_random = {}
+    tot_dict_multi = {}
+    tot_dict_bbox = {}
     tot_num = {}
     for i in range(1, 14):
         tot_dict_random[i] = 0
@@ -185,11 +277,16 @@ def main():
         # Get unique classes (excluding background)
         classes = np.unique(label_data)[1:]  # Excludes 0 if it represents the background
         for class_idx in classes:
-            random_score, multi_score, bbox_score = inference_for_class(label_data, image_data, class_idx)
+            random_score, multi_score, bbox_score = inference_for_class(label_data, image_data, class_idx, random=False)
+            multi_score = inference_for_class(label_data, image_data, class_idx)
+            bbox_score = inference_for_class(label_data, image_data, class_idx)
             tot_num[class_idx] += 1
             tot_dict_random[class_idx] += random_score
+            tot_dict_multi[class_idx] += multi_score
+            tot_dict_bbox[class_idx] += bbox_score
     for key in tot_dict_random.keys():
-        print(key, tot_dict_random[key]/tot_num[key])
+        print(key, tot_dict_multi[key]/tot_num[key])
+        print(key, tot_dict_bbox[key]/tot_num[key])
 
 def try_visualization():
     img_name = val_img_names[0]
@@ -204,4 +301,4 @@ def try_visualization():
         visualization(image_data, label_data,  class_idx)
         return
 
-try_visualization()
+main()
