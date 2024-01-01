@@ -161,37 +161,9 @@ def inference_for_single_class(label_data, image_data, class_value):
 
     return single_val/single_num
 
-def inference_for_multi_class(label_data, image_data, class_value):
-    multi_val = 0
-    multi_num = 0
-    for slice_index in range(label_data.shape[2]):
-        slice_data = label_data[:, :, slice_index]
-        slice_image = get_image(image_data, slice_index)
-        mask = slice_data == class_value
-        if np.any(mask):
-            # Single point prompt
-            print(find_multiple_points(mask))
-            sam_mask_random = sam_generate_mask(slice_image, find_multiple_points(mask))
-            multi_val += mdice(sam_mask_random, mask)
-            multi_num += 1
-        
-    return multi_val/multi_num
 
-def inference_for_bbox_class(label_data, image_data, class_value):
-    bbox_val = 0
-    bbox_num = 0
-    for slice_index in range(label_data.shape[2]):
-        slice_data = label_data[:, :, slice_index]
-        slice_image = get_image(image_data, slice_index)
-        mask = slice_data == class_value
-        if np.any(mask):
-            # Single point prompt
-            bbox = find_bounding_box(mask)
-            sam_mask_random = sam_generate_mask(slice_image, bbox)
-            bbox_val += mdice(sam_mask_random, mask)
-            bbox_num += 1
 
-    return bbox_val/bbox_num
+
   
 def inference_for_class(label_data, image_data, class_value, random=True, multi=True, usebbox=True):
     bbox_val = 0
