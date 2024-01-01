@@ -35,7 +35,7 @@ from monai.data import (
     load_decathlon_datalist,
     decollate_batch,
 )
-
+dice_metric = DiceMetric(include_background=True, reduction="mean", get_not_nans=False)
 train_transforms = Compose(
     [
         LoadImaged(keys=["image", "label"]),
@@ -103,17 +103,21 @@ def get_model():
     sam.to(device=device)
 
     mask_generator = SamAutomaticMaskGenerator(sam)
-    return mask_generator
+    return mask_generator, sam
 
 def get_anns_score(anns):
     if len(anns) == 0:
         return
-    sorted_anns = sorted(anns, key=(lambda x: x['predicted_iou']), reverse=True)
+    #sorted_anns = sorted(anns, key=(lambda x: x['predicted_iou']), reverse=True)
+    sorted_anns = sorted(anns, key=(lambda x: x['area']))
+    sorted_anns = sorted_anns[:13]
     ann_avg =  sorted_anns[0]['segmentation'].astype(np.float32)
+    for i, ann in enumerate(sorted_anns[1:]):
+        ann_avg +=  (i+1) * ann['segmentation'].astype(np.float32)
     return ann_avg
     
 def generate_slice(image_data, slice_index):
-    mask_generator = get_model()
+    mask_generator, sam = get_model()
     print(image_data)
     # Extract the i-th slice (2D array)
     slice_data = image_data[0, :, :, slice_index].numpy()
@@ -251,3 +255,9 @@ plt.imshow(sam_generated_masks.detach().cpu())
 plt.show()
 output_path = './images/image.png'  # Change to your desired path
 plt.savefig(output_path)
+# _, sam = get_model()
+# device = "cuda"
+# sam = sam.to(device)
+# sam.eval()
+# val_outputs = sliding_window_inference(torch.unsqueeze(img, 1).cuda(), (96, 96, 96), 4, sam)
+# print(val_outputs)
