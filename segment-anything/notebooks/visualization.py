@@ -4,6 +4,7 @@ import nibabel as nib
 import sys
 import cv2
 import os
+import torch
 sys.path.append("..")
 from segment_anything import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
 from PIL import Image
@@ -91,61 +92,7 @@ train_transforms = Compose(
         ),
     ]
 )
-val_transforms = Compose(
-    [
-        LoadImaged(keys=["image", "label"]),
-        EnsureChannelFirstd(keys=["image", "label"]),
-        Orientationd(keys=["image", "label"], axcodes="RAS"),
-        Spacingd(
-            keys=["image", "label"],
-            pixdim=(1.5, 1.5, 2.0),
-            mode=("bilinear", "nearest"),
-        ),
-        ScaleIntensityRanged(keys=["image"], a_min=-175, a_max=250, b_min=0.0, b_max=1.0, clip=True),
-        CropForegroundd(keys=["image", "label"], source_key="image"),
-    ]
-)
-data_dir = "/home/jiaxin/ML23Fall/data/images/RawData/Training/"
-split_json = "dataset_0.json"
 
-datasets = data_dir + split_json
-datalist = load_decathlon_datalist(datasets, True, "training")
-val_files = load_decathlon_datalist(datasets, True, "validation")
-train_ds = CacheDataset(
-    data=datalist,
-    transform=train_transforms,
-    cache_num=24,
-    cache_rate=1.0,
-    num_workers=8,
-)
-train_loader = DataLoader(train_ds, batch_size=1, shuffle=True, num_workers=8, pin_memory=True)
-val_ds = CacheDataset(data=val_files, transform=val_transforms, cache_num=6, cache_rate=1.0, num_workers=4)
-val_loader = DataLoader(val_ds, batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
-slice_map = {
-    "img0035.nii.gz": 170,
-    "img0036.nii.gz": 230,
-    "img0037.nii.gz": 204,
-    "img0038.nii.gz": 204,
-    "img0039.nii.gz": 204,
-    "img0040.nii.gz": 180,
-}
-case_num = 0
-img_name = os.path.split(val_ds[case_num]["image"].meta["filename_or_obj"])[1]
-img = val_ds[case_num]["image"]
-label = val_ds[case_num]["label"]
-img_shape = img.shape
-label_shape = label.shape
-print(f"image shape: {img_shape}, label shape: {label_shape}")
-plt.figure("image", (18, 6))
-plt.subplot(1, 2, 1)
-plt.title("image")
-plt.imshow(img[0, :, :, slice_map[img_name]].detach().cpu(), cmap="gray")
-plt.subplot(1, 2, 2)
-plt.title("label")
-plt.imshow(label[0, :, :, slice_map[img_name]].detach().cpu())
-plt.show()
-output_path = './images/image.png'  # Change to your desired path
-plt.savefig(output_path)
 def get_model():
     sam_checkpoint = "../sam_vit_h_4b8939.pth"
     model_type = "vit_h"
@@ -167,8 +114,9 @@ def get_anns_score(anns):
     
 def generate_slice(image_data, slice_index):
     mask_generator = get_model()
+    print(image_data)
     # Extract the i-th slice (2D array)
-    slice_data = image_data[:, :, slice_index]
+    slice_data = image_data[0, :, :, slice_index].numpy()
     # Normalize the slice to 0-255 range
     slice_normalized = cv2.normalize(slice_data, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
     slice_normalized = slice_normalized.astype(np.uint8)
@@ -242,3 +190,64 @@ def main():
 
     sam_generated_masks = generate_slice(image_data, slice_index)
     visualize_slice_with_sam_mask(image_data, label_data, sam_generated_masks, slice_index, save_path='./images/image_visualization.png')
+    
+val_transforms = Compose(
+    [
+        LoadImaged(keys=["image", "label"]),
+        EnsureChannelFirstd(keys=["image", "label"]),
+        Orientationd(keys=["image", "label"], axcodes="RAS"),
+        Spacingd(
+            keys=["image", "label"],
+            pixdim=(1.5, 1.5, 2.0),
+            mode=("bilinear", "nearest"),
+        ),
+        ScaleIntensityRanged(keys=["image"], a_min=-175, a_max=250, b_min=0.0, b_max=1.0, clip=True),
+        CropForegroundd(keys=["image", "label"], source_key="image"),
+    ]
+)
+data_dir = "/home/jiaxin/ML23Fall/data/images/RawData/Training/"
+split_json = "dataset_0.json"
+
+datasets = data_dir + split_json
+datalist = load_decathlon_datalist(datasets, True, "training")
+val_files = load_decathlon_datalist(datasets, True, "validation")
+train_ds = CacheDataset(
+    data=datalist,
+    transform=train_transforms,
+    cache_num=24,
+    cache_rate=1.0,
+    num_workers=8,
+)
+train_loader = DataLoader(train_ds, batch_size=1, shuffle=True, num_workers=8, pin_memory=True)
+val_ds = CacheDataset(data=val_files, transform=val_transforms, cache_num=6, cache_rate=1.0, num_workers=4)
+val_loader = DataLoader(val_ds, batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
+slice_map = {
+    "img0035.nii.gz": 170,
+    "img0036.nii.gz": 230,
+    "img0037.nii.gz": 204,
+    "img0038.nii.gz": 204,
+    "img0039.nii.gz": 204,
+    "img0040.nii.gz": 180,
+}
+case_num = 0
+img_name = os.path.split(val_ds[case_num]["image"].meta["filename_or_obj"])[1]
+img = val_ds[case_num]["image"]
+label = val_ds[case_num]["label"]
+img_shape = img.shape
+label_shape = label.shape
+print(f"image shape: {img_shape}, label shape: {label_shape}")
+plt.figure("image", (18, 6))
+plt.subplot(1, 3, 1)
+plt.title("image")
+print(img)
+plt.imshow(img[0, :, :, slice_map[img_name]].detach().cpu(), cmap="gray")
+plt.subplot(1, 3, 2)
+plt.title("label")
+plt.imshow(label[0, :, :, slice_map[img_name]].detach().cpu())
+sam_generated_masks = torch.tensor(generate_slice(img, slice_map[img_name]))
+plt.subplot(1, 3, 3)
+plt.title("sam mask")
+plt.imshow(sam_generated_masks.detach().cpu())
+plt.show()
+output_path = './images/image.png'  # Change to your desired path
+plt.savefig(output_path)
